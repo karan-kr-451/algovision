@@ -450,6 +450,29 @@ Full DSA taxonomy (30 categories) is retained for tagging/search, but scoped int
 
 All sources normalize into the `problems` schema (§5.1) with `pattern`, `visualization_tier`, and `visualization_meta` — content is organized by pattern, not by source.
 
+### 6.6a Integration Approach (per source)
+
+The five sources are integrated very differently — access method, license, and grading model all vary — so ingestion is per-source scripts (`/services/problem-service/ingestion/{codeforces,exercism}.py`), not one generic importer that would hide these distinctions.
+
+**Codeforces** — `GET https://codeforces.com/api/problemset.problems`, callable anonymously, rate-limited to ~1 call/2s. Returns metadata only (title, tags, rating, contest ID/index) — **not** full statement text or hidden test cases, which live only on the web page / judge and aren't exposed via API. Ingest the metadata for the catalog; store a link to the original problem plus an original short restatement rather than reproducing statement HTML at scale; author test cases ourselves from the stated constraints/examples. `license: proprietary-link-only`.
+
+**CSES** — no API, ~300 problems, fixed set. **Licensing conflict with monetization:** the problem set is Creative Commons **BY-NC-SA** (NonCommercial). The spec's 3–5% free→paid conversion target makes AlgoVision commercial, so CSES problems can't sit behind a paid tier without separately negotiated permission. Decision (default, revisit if needed): keep any CSES-sourced problems on a genuinely free tier only, rather than emailing for a commercial exception or dropping the source. `license: cc-by-nc-sa`.
+
+**Exercism** — `exercism/problem-specifications` on GitHub, MIT-licensed, problem statements as markdown + canonical test data as JSON, shared across language tracks. Cleanest source: `git clone` + parse `description.md` → `problems.statement`, canonical JSON → `problems.testcases`, re-synced periodically. `license: mit`.
+
+**Project Euler** — no bulk API. Main problem statements are covered by a Creative Commons licence and reuse is explicitly encouraged for non-profit purposes, with attribution ("The following problem is taken from Project Euler"). Bonus content and member stats are standard copyright, not reusable. Problems are answer-checked (single numeric answer), not test-case-graded — needs a distinct submission-check flow from the Codeforces/Exercism test-case judge. `license: cc-by` (statements only), ingestion is manual/lightly-scripted given no API.
+
+**Rosalind** — no clear, citable redistribution terms found. Don't ingest at scale until their terms are confirmed directly with them.
+
+**Schema additions to `problems` (§5.1):**
+```
+license               varchar          -- "proprietary-link-only" | "cc-by-nc-sa" | "mit" | "cc-by" | "original"
+attribution_text       varchar, nullable -- required credit line, if any
+function_name          varchar, nullable -- set for function-signature (LeetCode-style) problems
+starter_code           text, nullable    -- function stub shown in the editor, function-signature problems only
+```
+`function_name`/`starter_code` being set is what distinguishes a function-signature problem (judged by calling the function and comparing its return value) from a stdin/stdout problem (judged by comparing captured stdout) — see §2.1/judge-service for the two harnesses.
+
 ---
 
 *Living document. Expect Phase 3 (Tier 1 visualization MVP) to surface real constraints in the DAP-based approach — revisit Phase 4–8 timelines and scope once that's shipped and in front of real users.*

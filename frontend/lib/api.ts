@@ -18,6 +18,10 @@ export type ProblemDetail = ProblemSummary & {
   constraints: string | null;
   examples: unknown[];
   visualization_meta: Record<string, unknown>;
+  license: string;
+  attribution_text: string | null;
+  function_name: string | null;
+  starter_code: string | null;
 };
 
 export async function fetchProblems(): Promise<ProblemSummary[]> {

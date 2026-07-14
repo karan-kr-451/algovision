@@ -25,9 +25,14 @@ export default async function ProblemPage({
             </p>
           </>
         )}
+        {problem.attribution_text && (
+          <p className="mt-6 text-xs text-zinc-500">
+            Source: {problem.attribution_text} ({problem.license})
+          </p>
+        )}
       </div>
       <div className="w-1/2 flex flex-col min-h-0">
-        <Workspace problemId={problem.id} />
+        <Workspace problemId={problem.id} starterCode={problem.starter_code} />
       </div>
     </div>
   );

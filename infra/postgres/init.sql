@@ -31,6 +31,10 @@ CREATE TABLE problems (
     source              varchar(50) NOT NULL DEFAULT 'custom',
     visualization_tier  visualization_tier_enum NOT NULL DEFAULT 'core',
     visualization_meta  jsonb NOT NULL DEFAULT '{}',
+    license             varchar(50) NOT NULL DEFAULT 'original',
+    attribution_text    varchar(255),
+    function_name       varchar(100),
+    starter_code        text,
     created_at          timestamptz NOT NULL DEFAULT now()
 );
 
@@ -63,44 +67,45 @@ CREATE INDEX idx_solutions_problem_id ON solutions(problem_id);
 CREATE INDEX idx_problems_pattern ON problems(pattern);
 CREATE INDEX idx_problems_tier ON problems(visualization_tier);
 
--- Seed sample Tier 1 problems for the Phase 1 catalog
--- testcases (stdin/stdout pairs) are only populated for problems the Phase 2 judge
--- can run — the LeetCode-style function-signature problems below are catalog/visualization
--- content only until they're adapted to a stdin/stdout harness.
-INSERT INTO problems (title, difficulty, pattern, statement, constraints, examples, testcases, tags, source, visualization_tier, visualization_meta) VALUES
+-- Seed sample Tier 1 problems for the Phase 1 catalog. Two harnesses coexist:
+-- function-signature (LeetCode-style — function_name/starter_code set, testcases
+-- are {args, expected}) and stdin/stdout (function_name null, testcases are
+-- {input, output}) — see judge-service and spec §6.6a.
+INSERT INTO problems (title, difficulty, pattern, statement, constraints, examples, testcases, tags, source, visualization_tier, visualization_meta, function_name, starter_code) VALUES
 ('Two Sum', 'easy', 'hashing',
  'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
  '2 <= nums.length <= 10^4',
  '[{"input": "nums = [2,7,11,15], target = 9", "output": "[0,1]"}]',
- '[]',
- ARRAY['array','hashing'], 'custom', 'core', '{"array": true, "hashmap": true}'),
+ '[{"args": [[2,7,11,15], 9], "expected": [0,1]}, {"args": [[3,2,4], 6], "expected": [1,2]}, {"args": [[3,3], 6], "expected": [0,1]}]',
+ ARRAY['array','hashing'], 'custom', 'core', '{"array": true, "hashmap": true}',
+ 'twoSum', E'def twoSum(nums, target):\n    pass\n'),
 ('Valid Parentheses', 'easy', 'stack',
  'Given a string s containing just the characters ()[]{}, determine if the input string is valid.',
  '1 <= s.length <= 10^4',
  '[{"input": "s = \"()[]{}\"", "output": "true"}]',
  '[]',
- ARRAY['stack','string'], 'custom', 'core', '{"stack": true}'),
+ ARRAY['stack','string'], 'custom', 'core', '{"stack": true}', NULL, NULL),
 ('Reverse Linked List', 'easy', 'linked_list',
  'Given the head of a singly linked list, reverse the list, and return the reversed list.',
  'The number of nodes in the list is the range [0, 5000].',
  '[{"input": "head = [1,2,3,4,5]", "output": "[5,4,3,2,1]"}]',
  '[]',
- ARRAY['linked_list'], 'custom', 'core', '{"linked_list": true}'),
+ ARRAY['linked_list'], 'custom', 'core', '{"linked_list": true}', NULL, NULL),
 ('Binary Tree Level Order Traversal', 'medium', 'trees',
  'Given the root of a binary tree, return the level order traversal of its nodes'' values.',
  'The number of nodes in the tree is in the range [0, 2000].',
  '[{"input": "root = [3,9,20,null,null,15,7]", "output": "[[3],[9,20],[15,7]]"}]',
  '[]',
- ARRAY['tree','bfs'], 'custom', 'core', '{"tree": true}'),
+ ARRAY['tree','bfs'], 'custom', 'core', '{"tree": true}', NULL, NULL),
 ('Climbing Stairs', 'easy', 'dp',
  'You are climbing a staircase. It takes n steps to reach the top. Each time you can climb 1 or 2 steps. In how many distinct ways can you climb to the top? Read n from stdin, print the answer.',
  '1 <= n <= 45',
  '[{"input": "n = 3", "output": "3"}]',
  '[{"input": "3\n", "output": "3\n"}, {"input": "4\n", "output": "5\n"}, {"input": "1\n", "output": "1\n"}]',
- ARRAY['dp'], 'custom', 'core', '{"dp_1d": true}'),
+ ARRAY['dp'], 'custom', 'core', '{"dp_1d": true}', NULL, NULL),
 ('A Plus B', 'easy', 'math',
  'Read two space-separated integers a and b from stdin, print their sum.',
  '-10^9 <= a, b <= 10^9',
  '[{"input": "1 2", "output": "3"}]',
  '[{"input": "1 2\n", "output": "3\n"}, {"input": "5 7\n", "output": "12\n"}, {"input": "-3 3\n", "output": "0\n"}]',
- ARRAY['math'], 'custom', 'core', '{}');
+ ARRAY['math'], 'custom', 'core', '{}', NULL, NULL);

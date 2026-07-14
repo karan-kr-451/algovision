@@ -21,6 +21,10 @@ class ProblemDetail(ProblemSummary):
     constraints: str | None
     examples: list[Any]
     visualization_meta: dict
+    license: str
+    attribution_text: str | None
+    function_name: str | None
+    starter_code: str | None
 
     class Config:
         from_attributes = True

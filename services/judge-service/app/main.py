@@ -1,3 +1,5 @@
+import base64
+import json
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -22,6 +24,19 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+def _build_function_harness(code: str, function_name: str, args: list) -> str:
+    """Wraps a LeetCode-style function-signature solution so it can run through
+    the same sandbox as stdin/stdout problems: append a call to the target
+    function with json/base64-encoded args, print its return value as JSON."""
+    args_b64 = base64.b64encode(json.dumps(args).encode()).decode()
+    return (
+        code
+        + "\n\nimport json, base64\n"
+        + f"_args = json.loads(base64.b64decode('{args_b64}').decode())\n"
+        + f"print(json.dumps({function_name}(*_args)))\n"
+    )
 
 
 def _update_mastery(db: Session, user_id: uuid.UUID, pattern: str, accepted: bool):
@@ -54,10 +69,12 @@ def submit(payload: schemas.SubmissionCreate, db: Session = Depends(get_db)):
     total_runtime = 0
 
     for tc in problem.testcases:
-        stdout, runtime_ms, error = run_in_sandbox(payload.code, tc["input"])
+        if problem.function_name:
+            harness_code = _build_function_harness(payload.code, problem.function_name, tc["args"])
+            stdout, runtime_ms, error = run_in_sandbox(harness_code, "")
+        else:
+            stdout, runtime_ms, error = run_in_sandbox(payload.code, tc["input"])
         total_runtime += runtime_ms
-        expected = tc["output"].strip()
-        actual = stdout.strip()
 
         if error == "timeout":
             verdict = "tle"
@@ -68,7 +85,19 @@ def submit(payload: schemas.SubmissionCreate, db: Session = Depends(get_db)):
             results.append(schemas.TestCaseResult(passed=False, runtime_ms=runtime_ms, error=stdout))
             break
 
-        passed = actual == expected
+        if problem.function_name:
+            expected = json.dumps(tc["expected"])
+            try:
+                passed = json.loads(stdout.strip()) == tc["expected"]
+                actual = stdout.strip()
+            except (json.JSONDecodeError, ValueError):
+                passed = False
+                actual = stdout.strip()
+        else:
+            expected = tc["output"].strip()
+            actual = stdout.strip()
+            passed = actual == expected
+
         results.append(
             schemas.TestCaseResult(passed=passed, runtime_ms=runtime_ms, stdout=actual, expected=expected)
         )

@@ -18,6 +18,7 @@ class Problem(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)
     pattern = Column(String(100), nullable=False)
     testcases = Column(JSONB, nullable=False, default=list)
+    function_name = Column(String(100))
 
 
 class Solution(Base):
