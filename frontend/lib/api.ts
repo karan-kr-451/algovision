@@ -1,6 +1,8 @@
 export const USER_API = process.env.NEXT_PUBLIC_USER_API ?? "http://localhost:8001";
 export const PROBLEM_API = process.env.NEXT_PUBLIC_PROBLEM_API ?? "http://localhost:8002";
 export const JUDGE_API = process.env.NEXT_PUBLIC_JUDGE_API ?? "http://localhost:8003";
+export const TRACE_API = process.env.NEXT_PUBLIC_TRACE_API ?? "http://localhost:8004";
+export const VIZ_WS = process.env.NEXT_PUBLIC_VIZ_WS ?? "ws://localhost:8005";
 
 export type ProblemSummary = {
   id: string;
@@ -88,4 +90,65 @@ export async function submitSolution(
   });
   if (!res.ok) throw new Error((await res.json()).detail ?? "Submission failed");
   return res.json();
+}
+
+export async function startTrace(sessionId: string, code: string): Promise<void> {
+  const res = await fetch(`${TRACE_API}/trace`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, code }),
+  });
+  if (!res.ok) throw new Error("Failed to start trace");
+}
+
+export type TraceValue = {
+  type: string;
+  repr: string | null;
+  renderer: "scalar" | "array" | "queue" | "linked_list" | "binary_tree" | "dp_table" | "graph" | "object";
+  values?: (string | null)[];
+  nodes?: (string | null)[];
+  tree?: TreeNode | null;
+  rows?: (string | null)[][];
+  adjacency?: Record<string, (string | null)[]>;
+  fields?: Record<string, TraceValue>;
+};
+
+export type TreeNode = {
+  value: string | null;
+  left: TreeNode | null;
+  right: TreeNode | null;
+};
+
+export type TraceFrame = {
+  step: number;
+  line: number | null;
+  call_stack: { name: string; line: number }[];
+  variables: Record<string, TraceValue>;
+  stack_locals: { name: string; line: number; locals: Record<string, TraceValue> }[];
+  recursion: { active: boolean; depth: number };
+};
+
+export type TraceStreamEvent =
+  | ({ kind: "frame" } & TraceFrame)
+  | { kind: "limit_exceeded"; steps: number }
+  | { kind: "trace_complete" };
+
+// The Redis subscribe must actually complete server-side before /trace is
+// POSTed — pub/sub doesn't buffer, so frames published before a subscriber
+// exists are lost. ws.onopen fires on handshake, which is too early; wait for
+// the server's explicit "subscribed" ack instead, then call startTrace.
+export function connectTraceStream(
+  sessionId: string,
+  onEvent: (event: TraceStreamEvent) => void,
+  onReady: () => void
+): () => void {
+  const ws = new WebSocket(`${VIZ_WS}/ws/visualize/${sessionId}`);
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === "subscribed") onReady();
+    else if (data.type === "trace_complete") onEvent({ kind: "trace_complete" });
+    else if (data.type === "limit_exceeded") onEvent({ kind: "limit_exceeded", steps: data.steps });
+    else onEvent({ kind: "frame", ...data });
+  };
+  return () => ws.close();
 }

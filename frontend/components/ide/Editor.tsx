@@ -5,8 +5,6 @@ import { useState } from "react";
 import { submitSolution, type SubmissionResult } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 
-const DEFAULT_CODE = `# Read input from stdin, print the answer to stdout.\n`;
-
 const verdictColor: Record<string, string> = {
   accepted: "text-green-400",
   wrong_answer: "text-red-400",
@@ -15,8 +13,15 @@ const verdictColor: Record<string, string> = {
   runtime_error: "text-red-400",
 };
 
-export default function Editor({ problemId }: { problemId: string }) {
-  const [code, setCode] = useState(DEFAULT_CODE);
+export default function Editor({
+  problemId,
+  code,
+  onChange,
+}: {
+  problemId: string;
+  code: string;
+  onChange: (code: string) => void;
+}) {
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +64,7 @@ export default function Editor({ problemId }: { problemId: string }) {
           defaultLanguage="python"
           theme="vs-dark"
           value={code}
-          onChange={(value) => setCode(value ?? "")}
+          onChange={(value) => onChange(value ?? "")}
           options={{ minimap: { enabled: false }, fontSize: 14 }}
         />
       </div>
