@@ -37,5 +37,18 @@ services:
       postgres:
         condition: service_healthy
 
+  judge-service:
+    build: ./services/judge-service
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://algovision:algovision@postgres:5432/algovision
+    volumes:
+      # docker-outside-of-docker: launches sandboxed run containers on the HOST daemon
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

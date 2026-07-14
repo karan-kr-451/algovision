@@ -27,7 +27,7 @@ export default async function ProblemPage({
         )}
       </div>
       <div className="w-1/2 flex flex-col min-h-0">
-        <Editor />
+        <Editor problemId={problem.id} />
         <div className="border-t border-zinc-800 px-4 py-3 text-sm text-zinc-500">
           Visualization panel — lands in Phase 3 (DAP trace pipeline).
         </div>
