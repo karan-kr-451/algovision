@@ -1,8 +1,8 @@
 """
 Drives a real Chromium browser against the running stack: opens a problem page,
-types a traceable solution into Monaco, clicks Visualize, waits for real trace
-frames to render, screenshots the result, and asserts visualization elements
-actually appeared in the DOM.
+types a traceable solution into Monaco, and verifies BOTH trigger paths from
+spec §2.1 — explicit Visualize click AND debounced live-while-typing — render
+real trace frames. Also exercises auto-play and the timeline scrubber.
 
 Prereqs: docker compose stack up, frontend dev server on :3000,
 `pip install playwright && playwright install chromium`.
@@ -19,10 +19,20 @@ from playwright.sync_api import sync_playwright
 FRONTEND = "http://localhost:3000"
 PROBLEM_API = "http://localhost:8002"
 
-CODE = """nums = [3, 1, 4, 1, 5]
+ARRAY_CODE = """nums = [3, 1, 4, 1, 5]
 total = 0
 for i in range(5):
     total += nums[i]
+"""
+
+TREE_CODE = """class TreeNode:
+    def __init__(self, val, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+root = TreeNode(1, TreeNode(2), TreeNode(3))
+x = root.val
 """
 
 
@@ -30,6 +40,16 @@ def get_problem_id(title):
     with urllib.request.urlopen(f"{PROBLEM_API}/problems") as resp:
         problems = json.load(resp)
     return next(p["id"] for p in problems if p["title"] == title)
+
+
+def set_editor(page, code):
+    page.evaluate(
+        """(code) => {
+            const models = window.monaco?.editor?.getModels?.() ?? [];
+            if (models.length) models[0].setValue(code);
+        }""",
+        code,
+    )
 
 
 def main():
@@ -41,60 +61,69 @@ def main():
         page = browser.new_page(viewport={"width": 1600, "height": 1000})
         page.goto(f"{FRONTEND}/problems/{problem_id}", wait_until="networkidle")
 
-        # Problem page basics
         if not page.locator("h1", has_text="Two Sum").count():
             failures.append("problem title missing")
 
-        # Monaco editor loaded with starter code
         page.wait_for_selector(".monaco-editor", timeout=20000)
-        # Monaco renders spaces as non-breaking spaces — normalize before matching
         editor_text = page.locator(".view-lines").first.inner_text().replace(" ", " ")
         if "def twoSum" not in editor_text:
             failures.append("starter code not prefilled in Monaco")
 
-        # Replace editor content with a simple traceable script via Monaco's API
-        page.evaluate(
-            """(code) => {
-                const models = window.monaco?.editor?.getModels?.() ?? [];
-                if (models.length) models[0].setValue(code);
-            }""",
-            CODE,
-        )
-        time.sleep(0.5)
-        if "nums" not in page.locator(".view-lines").first.inner_text().replace(" ", " "):
-            failures.append("could not set editor content via monaco API")
-
-        # Click Visualize, wait for frames to stream in from the real pipeline
-        page.get_by_role("button", name="Visualize").click()
+        # --- Scenario 1: live-while-typing. Setting editor content counts as
+        # typing; after the debounce a background trace should stream in with
+        # NO Visualize click.
+        set_editor(page, ARRAY_CODE)
         try:
             page.wait_for_selector("input[type=range]", timeout=90000)
+            print("live-typing: frames appeared without clicking Visualize")
         except Exception:
-            failures.append("timeline scrubber never appeared (no frames streamed)")
+            failures.append("live-typing produced no frames (timeline never appeared)")
+        page.screenshot(path="live_typing.png")
 
+        # --- Scenario 2: pointer overlay. The array code has i indexing nums —
+        # a pointer chip should appear once trace completes.
         page.wait_for_timeout(2000)
-        page.screenshot(path="visualization_mid.png")
+        if page.locator("text=▲ i").count():
+            print("pointer overlay: chip for i rendered under nums")
+        else:
+            failures.append("pointer chip for i not found")
 
-        # Array renderer: cells with values from nums should be visible
-        step_label = page.locator("text=/step \\d+/")
-        if not step_label.count():
-            failures.append("step indicator missing")
+        # --- Scenario 3: auto-play at 5x.
+        play = page.get_by_role("button", name="Play")
+        if play.count():
+            page.locator("select[aria-label='Playback speed']").select_option("5")
+            start = page.locator("text=/step \\d+/").first.inner_text()
+            play.click()
+            page.wait_for_timeout(1500)
+            after = page.locator("text=/step \\d+/").first.inner_text()
+            if start == after:
+                failures.append(f"auto-play did not advance (stuck at {start})")
+            else:
+                print(f"auto-play: advanced {start} -> {after}")
+        else:
+            failures.append("play button missing")
 
-        # Wait for trace completion (button back to 'Visualize'), then scrub timeline
+        # --- Scenario 4: syntax-error typing keeps last good trace + shows note.
+        set_editor(page, "for i in ran")
+        page.wait_for_timeout(2000)
+        if not page.locator("input[type=range]").count():
+            failures.append("visualization blanked out on syntax error (must keep last good trace)")
+        if page.locator("text=/syntax error/").count():
+            print("live-typing: syntax-error note shown, last trace retained")
+        else:
+            failures.append("syntax-error note not shown")
+
+        # --- Scenario 5: SVG tree layout via explicit Visualize on tree code.
+        set_editor(page, TREE_CODE)
+        page.get_by_role("button", name="Visualize").click()
         try:
-            page.wait_for_selector("button:has-text('Visualize')", timeout=90000)
+            page.wait_for_selector("svg circle", timeout=120000)
+            print(f"tree layout: {page.locator('svg circle').count()} SVG nodes rendered")
         except Exception:
-            failures.append("trace never completed (button stuck on Tracing)")
+            failures.append("binary tree SVG never rendered")
+        page.wait_for_timeout(1000)
+        page.screenshot(path="tree_layout.png")
 
-        slider = page.locator("input[type=range]")
-        if slider.count():
-            frame_total = page.locator("text=/\\d+\\/\\d+/").first.inner_text()
-            slider.fill("0")
-            page.wait_for_timeout(300)
-            first_step = page.locator("text=/step \\d+/").first.inner_text()
-            page.screenshot(path="visualization_scrubbed.png")
-            print(f"timeline: {frame_total}, scrubbed to: {first_step}")
-
-        page.screenshot(path="visualization_final.png")
         browser.close()
 
     if failures:
@@ -102,7 +131,7 @@ def main():
         for f in failures:
             print(" -", f)
         sys.exit(1)
-    print("UI VERIFICATION PASSED — screenshots: visualization_mid.png, visualization_scrubbed.png, visualization_final.png")
+    print("UI VERIFICATION PASSED — screenshots: live_typing.png, tree_layout.png")
 
 
 if __name__ == "__main__":

@@ -8,17 +8,20 @@ a real DAP session, not a custom tracer (non-negotiable rule #2 in CLAUDE.md).
 Steps into every call (not just over) so recursion depth is visible in call_stack.
 """
 import json
+import os
 import socket
 import subprocess
 import sys
 import time
 
-MAX_STEPS = 500
+# Limits are env-overridable so background (typing-pause-triggered) runs get a
+# tighter budget than explicit Run, per spec §2.1's guard table.
+MAX_STEPS = int(os.environ.get("TRACE_MAX_STEPS", "500"))
 # ponytail: each step does several real DAP round-trips (stackTrace/scopes/variables,
 # recursively for compound locals), so wall-clock cost grows with structure size —
 # 45s covers small Tier-1 demo inputs. If this becomes the bottleneck for real usage,
 # batch/parallelize the variable-expansion requests instead of raising this further.
-WALL_CLOCK_LIMIT_S = 45
+WALL_CLOCK_LIMIT_S = int(os.environ.get("TRACE_WALL_CLOCK_S", "45"))
 MAX_FRAMES = 20
 MAX_CHILDREN = 30
 MAX_EXPAND_DEPTH = 6
@@ -127,7 +130,7 @@ def describe_value(client, var, depth=0, seen=None):
     fields = {}
     for child in children:
         name = child.get("name")
-        if name and not name.startswith("__") and "special variables" not in name and "function variables" not in name:
+        if name and not name.startswith("__") and "special variables" not in name and "function variables" not in name and "class variables" not in name:
             fields[name] = describe_value(client, child, depth + 1, seen)
 
     return {"type": var_type, "repr": var.get("value"), "fields": fields}
@@ -144,7 +147,7 @@ def _frame_locals(client, frame_id):
         vars_resp = client.read_until(lambda m: m.get("type") == "response" and m.get("request_seq") == seq)
         for var in vars_resp.get("body", {}).get("variables", []):
             name = var.get("name")
-            if name and not name.startswith("__") and name not in ("special variables", "function variables"):
+            if name and not name.startswith("__") and name not in ("special variables", "function variables", "class variables"):
                 result[name] = describe_value(client, var)
     return result
 

@@ -96,13 +96,16 @@ export async function submitSolution(
   return res.json();
 }
 
-export async function startTrace(sessionId: string, code: string): Promise<void> {
+export async function startTrace(sessionId: string, code: string, background = false): Promise<void> {
   const res = await fetch(`${TRACE_API}/trace`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, code }),
+    body: JSON.stringify({ session_id: sessionId, code, background }),
   });
-  if (!res.ok) throw new Error("Failed to start trace");
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null))?.detail;
+    throw new Error(detail ?? "Failed to start trace");
+  }
 }
 
 export type TraceValue = {
@@ -111,6 +114,8 @@ export type TraceValue = {
   renderer: "scalar" | "array" | "queue" | "linked_list" | "binary_tree" | "dp_table" | "graph" | "hashmap" | "object";
   values?: (string | null)[];
   nodes?: (string | null)[];
+  node_ids?: (string | null)[];
+  obj_id?: string | null;
   tree?: TreeNode | null;
   rows?: (string | null)[][];
   adjacency?: Record<string, (string | null)[]>;

@@ -5,10 +5,22 @@ happens — it works purely from the shape of variable data already captured by
 trace-execution-service, never from annotations or code style.
 """
 
+import re
+
 MAX_LINKED_LIST_NODES = 200
 MAX_TREE_DEPTH = 12
 
 PRIMITIVE_TYPES = {"int", "float", "str", "bool", "NoneType", "complex"}
+
+_ADDR_RE = re.compile(r"0x[0-9a-f]+")
+
+
+def _obj_id(val):
+    """Stable-across-steps object identity, parsed from CPython's default repr
+    ('<__main__.Node object at 0x7e55...>'). Cheap alias detection without an
+    extra DAP round-trip per variable — good enough for pointer-aliasing badges."""
+    m = _ADDR_RE.search(val.get("repr") or "")
+    return m.group(0) if m else None
 
 
 def _value_field(fields):
@@ -53,18 +65,20 @@ def classify_value(val):
 
     if "next" in fields or "prev" in fields:
         nodes = []
+        node_ids = []
         current = val
         seen = 0
         while current and current.get("fields") and seen < MAX_LINKED_LIST_NODES:
             f = current["fields"]
             value_field = _value_field(f)
             nodes.append(value_field.get("repr") if value_field else None)
+            node_ids.append(_obj_id(current))
             nxt = f.get("next") or f.get("prev")
             if not nxt or nxt.get("repr") in (None, "None") or not nxt.get("fields"):
                 break
             current = nxt
             seen += 1
-        return {**val, "renderer": "linked_list", "nodes": nodes}
+        return {**val, "renderer": "linked_list", "nodes": nodes, "node_ids": node_ids, "obj_id": _obj_id(val)}
 
     if "left" in fields and "right" in fields:
         def walk(node, depth=0):
@@ -77,7 +91,7 @@ def classify_value(val):
                 "left": walk(f.get("left"), depth + 1),
                 "right": walk(f.get("right"), depth + 1),
             }
-        return {**val, "renderer": "binary_tree", "tree": walk(val)}
+        return {**val, "renderer": "binary_tree", "tree": walk(val), "obj_id": _obj_id(val)}
 
     if vtype == "dict" and fields:
         # pydevd adds a synthetic "len()" entry on dicts too — ignore it for shape checks
@@ -99,7 +113,12 @@ def classify_value(val):
         members = [v.get("repr") for k, v in fields.items() if k != "len()"]
         return {**val, "renderer": "array", "values": members}
 
-    return {**val, "renderer": "object", "fields": {k: classify_value(v) for k, v in fields.items() if k != "len()"}}
+    return {
+        **val,
+        "renderer": "object",
+        "obj_id": _obj_id(val),
+        "fields": {k: classify_value(v) for k, v in fields.items() if k != "len()"},
+    }
 
 
 def classify_frame(raw_frame: dict) -> dict:
