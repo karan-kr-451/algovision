@@ -23,6 +23,43 @@ def _obj_id(val):
     return m.group(0) if m else None
 
 
+def _heap_property(values):
+    """True when a numeric array of length >=3 satisfies the min-heap invariant
+    (parent <= both children). A data property, not a usage guess — the frontend
+    offers a heap-as-tree toggle only when it actually holds. Note sorted arrays
+    trivially satisfy it, hence toggle rather than auto-switch."""
+    if len(values) < 3:
+        return False
+    try:
+        nums = [float(v) for v in values]
+    except (TypeError, ValueError):
+        return False
+    return all(
+        nums[i] <= nums[c]
+        for i in range(len(nums))
+        for c in (2 * i + 1, 2 * i + 2)
+        if c < len(nums)
+    )
+
+
+def _trie_shape(val, depth=0):
+    """Recursively convert a nested-dict trie into {label: subtree} edges.
+    A dict is trie-shaped when every non-synthetic value is itself a dict
+    (child node) or a primitive (terminal marker like {'$': True})."""
+    fields = {k: v for k, v in (val.get("fields") or {}).items() if k != "len()"}
+    if not fields or depth >= MAX_TREE_DEPTH:
+        return None
+    children = {}
+    for k, v in fields.items():
+        if v.get("type") == "dict":
+            children[k] = _trie_shape(v, depth + 1) or {}
+        elif v.get("type") in PRIMITIVE_TYPES:
+            children[k] = None  # terminal marker
+        else:
+            return None  # non-dict, non-primitive value: not a trie
+    return children
+
+
 def _value_field(fields):
     """Node-shaped objects commonly name their payload val/value/data — grab whichever exists."""
     for key in ("val", "value", "data"):
@@ -57,7 +94,8 @@ def classify_value(val):
         if children and all(_is_indexed_list(c.get("fields")) for c in children):
             rows = [[gc.get("repr") for gc in _ordered_children(c["fields"])] for c in children]
             return {**val, "renderer": "dp_table", "rows": rows}
-        return {**val, "renderer": "array", "values": [c.get("repr") for c in children]}
+        values = [c.get("repr") for c in children]
+        return {**val, "renderer": "array", "values": values, "heap_property": _heap_property(values)}
 
     if vtype == "deque" and _is_indexed_list(fields):
         children = _ordered_children(fields)
@@ -102,12 +140,39 @@ def classify_value(val):
                 for k, v in real_items.items()
             }
             return {**val, "renderer": "graph", "adjacency": adjacency}
+        # Weighted graph (Dijkstra-style): dict of node -> dict of neighbor -> numeric
+        # weight. Empty neighbor-dicts are valid (isolated/sink nodes), but at least
+        # one edge must exist somewhere or it's indistinguishable from a trie/hashmap.
+        def _numeric_neighbors(v):
+            inner = {gk: gv for gk, gv in (v.get("fields") or {}).items() if gk != "len()"}
+            return all(gv.get("type") in ("int", "float") for gv in inner.values())
+
+        if (
+            real_items
+            and all(v.get("type") == "dict" and _numeric_neighbors(v) for v in real_items.values())
+            and any(
+                gk != "len()" and gv.get("type") in ("int", "float")
+                for v in real_items.values()
+                for gk, gv in (v.get("fields") or {}).items()
+            )
+        ):
+            weighted = {
+                k: {gk: gv.get("repr") for gk, gv in (v.get("fields") or {}).items() if gk != "len()"}
+                for k, v in real_items.items()
+            }
+            return {**val, "renderer": "weighted_graph", "weighted_adjacency": weighted}
+        # Trie: nested dicts with primitive terminal markers, at least one dict child
+        # (a flat all-primitive dict is a hashmap, handled below)
+        has_dict_child = any(v.get("type") == "dict" for v in real_items.values())
+        trie = _trie_shape(val) if has_dict_child else None
+        if trie is not None:
+            return {**val, "renderer": "trie", "trie": trie}
         if real_items and all(
             c.get("type") in PRIMITIVE_TYPES or not c.get("fields") for c in real_items.values()
         ):
             entries = {k: v.get("repr") for k, v in real_items.items()}
             return {**val, "renderer": "hashmap", "entries": entries}
-        # nested dicts (e.g. a trie) fall through to object with classified children
+        # other nested dicts fall through to object with classified children
 
     if vtype == "set" and fields:
         members = [v.get("repr") for k, v in fields.items() if k != "len()"]

@@ -8,7 +8,7 @@ import {
   type TraceValue,
 } from "@/lib/api";
 import { ArrayView, DpTableView, HashmapView, LinkedListView, ScalarView, type Pointer } from "./renderers";
-import { BinaryTreeView, GraphView } from "./layouts";
+import { BinaryTreeView, GraphView, HeapTreeView, TrieView, WeightedGraphView } from "./layouts";
 
 const SPEEDS = [0.5, 1, 2, 5];
 const BASE_STEP_MS = 800;
@@ -79,6 +79,41 @@ function findAlias(
   return null;
 }
 
+function ArrayOrHeapView({
+  name,
+  value,
+  prev,
+  variables,
+}: {
+  name: string;
+  value: TraceValue;
+  prev?: TraceValue;
+  variables: Record<string, TraceValue>;
+}) {
+  const [asHeap, setAsHeap] = useState(false);
+  return (
+    <div>
+      {value.heap_property && (
+        <button
+          onClick={() => setAsHeap(!asHeap)}
+          className="text-[10px] text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded px-1.5 py-0.5 mb-1"
+        >
+          {asHeap ? "as array" : "as heap tree"}
+        </button>
+      )}
+      {asHeap && value.heap_property ? (
+        <HeapTreeView values={value.values ?? []} />
+      ) : (
+        <ArrayView
+          values={value.values ?? []}
+          changed={changedIndices(prev, value)}
+          pointers={detectPointers(variables, name)}
+        />
+      )}
+    </div>
+  );
+}
+
 function ValueView({
   name,
   value,
@@ -93,13 +128,7 @@ function ValueView({
   switch (value.renderer) {
     case "array":
     case "queue":
-      return (
-        <ArrayView
-          values={value.values ?? []}
-          changed={changedIndices(prev, value)}
-          pointers={detectPointers(variables, name)}
-        />
-      );
+      return <ArrayOrHeapView name={name} value={value} prev={prev} variables={variables} />;
     case "hashmap":
       return <HashmapView entries={value.entries ?? {}} changed={changedKeys(prev, value)} />;
     case "linked_list": {
@@ -119,9 +148,38 @@ function ValueView({
       return <DpTableView rows={value.rows ?? []} changed={changedCells(prev, value)} />;
     case "graph":
       return <GraphView adjacency={value.adjacency ?? {}} />;
+    case "weighted_graph":
+      return <WeightedGraphView weightedAdjacency={value.weighted_adjacency ?? {}} />;
+    case "trie":
+      return <TrieView trie={value.trie ?? null} />;
     default:
       return <ScalarView value={value} changed={prev !== undefined && prev.repr !== value.repr} />;
   }
+}
+
+// Complexity overlay (spec Phase 4): per-line hit counts measured from the
+// real trace — an empirical hotspot profile, not a guessed complexity class.
+function LineHitOverlay({ frames }: { frames: TraceFrame[] }) {
+  const counts = new Map<number, number>();
+  for (const f of frames) {
+    if (f.line != null) counts.set(f.line, (counts.get(f.line) ?? 0) + 1);
+  }
+  const rows = [...counts.entries()].sort((a, b) => a[0] - b[0]);
+  const max = Math.max(...rows.map(([, c]) => c), 1);
+  return (
+    <div className="flex flex-col gap-0.5">
+      {rows.map(([line, count]) => (
+        <div key={line} className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-500 w-12 text-right font-mono">L{line}</span>
+          <div className="h-3 bg-blue-500/50 rounded-sm" style={{ width: `${(count / max) * 160}px` }} />
+          <span className="text-zinc-400">{count}×</span>
+        </div>
+      ))}
+      <p className="text-[10px] text-zinc-600 mt-1">
+        measured executions per line, this trace ({frames.length} steps)
+      </p>
+    </div>
+  );
 }
 
 export default function VisualizationPanel({ code }: { code: string }) {
@@ -131,6 +189,7 @@ export default function VisualizationPanel({ code }: { code: string }) {
   const [liveNote, setLiveNote] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [showComplexity, setShowComplexity] = useState(false);
 
   const disconnectRef = useRef<(() => void) | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,13 +292,25 @@ export default function VisualizationPanel({ code }: { code: string }) {
           Visualization
           {liveNote && <span className="ml-2 text-xs text-yellow-500/80">{liveNote}</span>}
         </span>
-        <button
-          onClick={() => runTrace(false)}
-          disabled={status === "running" && frames.length === 0}
-          className="text-sm bg-zinc-100 text-zinc-900 px-3 py-1 rounded hover:bg-white disabled:opacity-50"
-        >
-          {status === "running" ? "Tracing…" : "Visualize"}
-        </button>
+        <div className="flex items-center gap-2">
+          {frames.length > 0 && (
+            <button
+              onClick={() => setShowComplexity(!showComplexity)}
+              className={`text-xs px-2 py-1 rounded border ${
+                showComplexity ? "border-blue-500 text-blue-400" : "border-zinc-700 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              hotspots
+            </button>
+          )}
+          <button
+            onClick={() => runTrace(false)}
+            disabled={status === "running" && frames.length === 0}
+            className="text-sm bg-zinc-100 text-zinc-900 px-3 py-1 rounded hover:bg-white disabled:opacity-50"
+          >
+            {status === "running" ? "Tracing…" : "Visualize"}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-4">
@@ -247,6 +318,11 @@ export default function VisualizationPanel({ code }: { code: string }) {
           <p className="text-zinc-500 text-sm">
             Start typing, or click Visualize — the panel traces your real execution.
           </p>
+        )}
+        {showComplexity && frames.length > 0 && (
+          <div className="mb-4 border-b border-zinc-800 pb-3">
+            <LineHitOverlay frames={frames} />
+          </div>
         )}
         {frame && (
           <div className="flex flex-col gap-4">

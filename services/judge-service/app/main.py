@@ -6,9 +6,11 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from datetime import date, timedelta
+
 from . import schemas
 from .db import Base, engine, get_db
-from .models import LearningProgress, Problem, Solution
+from .models import LearningProgress, Problem, Solution, User
 from .sandbox import run_in_sandbox
 
 app = FastAPI(title="AlgoVision Judge Service")
@@ -37,6 +39,19 @@ def _build_function_harness(code: str, function_name: str, args: list) -> str:
         + f"_args = json.loads(base64.b64decode('{args_b64}').decode())\n"
         + f"print(json.dumps({function_name}(*_args)))\n"
     )
+
+
+def _update_streak(db: Session, user_id: uuid.UUID):
+    """Consecutive-day streak: bump when the previous accepted day was yesterday,
+    keep unchanged if already accepted today, reset to 1 otherwise."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return
+    today = date.today()
+    if user.last_accepted_date == today:
+        return
+    user.streak = user.streak + 1 if user.last_accepted_date == today - timedelta(days=1) else 1
+    user.last_accepted_date = today
 
 
 def _update_mastery(db: Session, user_id: uuid.UUID, pattern: str, accepted: bool):
@@ -117,6 +132,8 @@ def submit(payload: schemas.SubmissionCreate, db: Session = Depends(get_db)):
     db.add(solution)
 
     _update_mastery(db, payload.user_id, problem.pattern, accepted=(verdict == "accepted"))
+    if verdict == "accepted":
+        _update_streak(db, payload.user_id)
 
     db.commit()
     db.refresh(solution)

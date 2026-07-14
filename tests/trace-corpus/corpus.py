@@ -214,4 +214,23 @@ def fib(n):
 
 result = fib(3)
 """),
+    # ---- Tier 2 (Phase 4): trie as dedicated renderer
+    ("tier2_trie", {"trie"}, """\
+trie = {}
+for word in ["ab", "ac"]:
+    node = trie
+    for ch in word:
+        node = node.setdefault(ch, {})
+    node["$"] = True
+"""),
+    # ---- Tier 2 (Phase 4): weighted graph (Dijkstra-style adjacency)
+    ("tier2_weighted_graph", {"weighted_graph"}, """\
+graph = {0: {1: 4, 2: 1}, 1: {2: 2}, 2: {}}
+dist = {0: 0}
+for node in [0, 1, 2]:
+    for nbr, w in graph.get(node, {}).items():
+        cand = dist.get(node, 99) + w
+        if cand < dist.get(nbr, 99):
+            dist[nbr] = cand
+"""),
 ]

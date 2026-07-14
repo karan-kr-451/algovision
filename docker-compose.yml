@@ -50,6 +50,16 @@ services:
       postgres:
         condition: service_healthy
 
+  recommendation-service:
+    build: ./services/recommendation-service
+    ports:
+      - "8006:8006"
+    environment:
+      DATABASE_URL: postgresql://algovision:algovision@postgres:5432/algovision
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     image: redis:7-alpine
     ports:

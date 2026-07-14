@@ -1,5 +1,6 @@
 import { fetchProblem } from "@/lib/api";
 import Workspace from "@/components/ide/Workspace";
+import NotepadPanel from "@/components/notepad/NotepadPanel";
 
 export default async function ProblemPage({
   params,
@@ -30,6 +31,9 @@ export default async function ProblemPage({
             Source: {problem.attribution_text} ({problem.license})
           </p>
         )}
+        <div className="mt-8">
+          <NotepadPanel problemId={problem.id} />
+        </div>
       </div>
       <div className="w-1/2 flex flex-col min-h-0">
         <Workspace problemId={problem.id} starterCode={problem.starter_code} />

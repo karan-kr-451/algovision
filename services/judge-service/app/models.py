@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, Text, Integer, Float, Enum, DateTime
+from sqlalchemy import Column, String, Text, Integer, Float, Enum, Date, DateTime
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import func
 
@@ -19,6 +19,14 @@ class Problem(Base):
     pattern = Column(String(100), nullable=False)
     testcases = Column(JSONB, nullable=False, default=list)
     function_name = Column(String(100))
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    streak = Column(Integer, nullable=False, default=0)
+    last_accepted_date = Column(Date)
 
 
 class Solution(Base):

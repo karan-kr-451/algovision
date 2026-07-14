@@ -3,6 +3,7 @@ export const PROBLEM_API = process.env.NEXT_PUBLIC_PROBLEM_API ?? "http://localh
 export const JUDGE_API = process.env.NEXT_PUBLIC_JUDGE_API ?? "http://localhost:8003";
 export const TRACE_API = process.env.NEXT_PUBLIC_TRACE_API ?? "http://localhost:8004";
 export const VIZ_WS = process.env.NEXT_PUBLIC_VIZ_WS ?? "ws://localhost:8005";
+export const REC_API = process.env.NEXT_PUBLIC_REC_API ?? "http://localhost:8006";
 
 export type ProblemSummary = {
   id: string;
@@ -36,7 +37,46 @@ export async function fetchProblem(id: string): Promise<ProblemDetail> {
   return res.json();
 }
 
-export type AuthUser = { id: string; name: string; email: string };
+export type AuthUser = { id: string; name: string; email: string; streak: number };
+
+export type Recommendation = { id: string; title: string; difficulty: string; pattern: string };
+export type WeakPattern = { pattern: string; mastery_score: number; attempts: number };
+
+export async function fetchRecommendations(userId: string): Promise<{ mode: string; problems: Recommendation[] }> {
+  const res = await fetch(`${REC_API}/recommendations/${userId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load recommendations");
+  return res.json();
+}
+
+export async function fetchWeakPatterns(userId: string): Promise<{ patterns: WeakPattern[] }> {
+  const res = await fetch(`${REC_API}/weak-patterns/${userId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load weak patterns");
+  return res.json();
+}
+
+export type NotepadData = {
+  problem_id: string | null;
+  content_type: "sketch" | "text";
+  content: Record<string, unknown>;
+};
+
+export async function fetchNotepads(token: string, problemId?: string): Promise<NotepadData[]> {
+  const qs = problemId ? `?problem_id=${problemId}` : "";
+  const res = await fetch(`${USER_API}/notepads${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to load notepads");
+  return res.json();
+}
+
+export async function saveNotepad(token: string, pad: NotepadData): Promise<void> {
+  const res = await fetch(`${USER_API}/notepads`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(pad),
+  });
+  if (!res.ok) throw new Error("Failed to save notepad");
+}
 
 export async function login(email: string, password: string): Promise<{ token: string }> {
   const res = await fetch(`${USER_API}/auth/login`, {
@@ -108,17 +148,24 @@ export async function startTrace(sessionId: string, code: string, background = f
   }
 }
 
+export type TrieNode = { [edge: string]: TrieNode | null };
+
 export type TraceValue = {
   type: string;
   repr: string | null;
-  renderer: "scalar" | "array" | "queue" | "linked_list" | "binary_tree" | "dp_table" | "graph" | "hashmap" | "object";
+  renderer:
+    | "scalar" | "array" | "queue" | "linked_list" | "binary_tree" | "dp_table"
+    | "graph" | "weighted_graph" | "trie" | "hashmap" | "object";
   values?: (string | null)[];
+  heap_property?: boolean;
   nodes?: (string | null)[];
   node_ids?: (string | null)[];
   obj_id?: string | null;
   tree?: TreeNode | null;
+  trie?: TrieNode | null;
   rows?: (string | null)[][];
   adjacency?: Record<string, (string | null)[]>;
+  weighted_adjacency?: Record<string, Record<string, string | null>>;
   entries?: Record<string, string | null>;
   fields?: Record<string, TraceValue>;
 };
