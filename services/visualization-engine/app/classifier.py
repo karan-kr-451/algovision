@@ -8,6 +8,8 @@ trace-execution-service, never from annotations or code style.
 MAX_LINKED_LIST_NODES = 200
 MAX_TREE_DEPTH = 12
 
+PRIMITIVE_TYPES = {"int", "float", "str", "bool", "NoneType", "complex"}
+
 
 def _value_field(fields):
     """Node-shaped objects commonly name their payload val/value/data — grab whichever exists."""
@@ -77,16 +79,27 @@ def classify_value(val):
             }
         return {**val, "renderer": "binary_tree", "tree": walk(val)}
 
-    if vtype == "dict" and fields and all(
-        c.get("type") in ("list", "NoneType", "set") for c in fields.values()
-    ):
-        adjacency = {
-            k: [n.get("repr") for n in _ordered_children(v.get("fields") or {})]
-            for k, v in fields.items()
-        }
-        return {**val, "renderer": "graph", "adjacency": adjacency}
+    if vtype == "dict" and fields:
+        # pydevd adds a synthetic "len()" entry on dicts too — ignore it for shape checks
+        real_items = {k: v for k, v in fields.items() if k != "len()"}
+        if real_items and all(c.get("type") in ("list", "set") for c in real_items.values()):
+            adjacency = {
+                k: [n.get("repr") for n in _ordered_children(v.get("fields") or {})]
+                for k, v in real_items.items()
+            }
+            return {**val, "renderer": "graph", "adjacency": adjacency}
+        if real_items and all(
+            c.get("type") in PRIMITIVE_TYPES or not c.get("fields") for c in real_items.values()
+        ):
+            entries = {k: v.get("repr") for k, v in real_items.items()}
+            return {**val, "renderer": "hashmap", "entries": entries}
+        # nested dicts (e.g. a trie) fall through to object with classified children
 
-    return {**val, "renderer": "object", "fields": {k: classify_value(v) for k, v in fields.items()}}
+    if vtype == "set" and fields:
+        members = [v.get("repr") for k, v in fields.items() if k != "len()"]
+        return {**val, "renderer": "array", "values": members}
+
+    return {**val, "renderer": "object", "fields": {k: classify_value(v) for k, v in fields.items() if k != "len()"}}
 
 
 def classify_frame(raw_frame: dict) -> dict:

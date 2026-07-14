@@ -73,11 +73,27 @@ function DpTableView({ rows }: { rows: (string | null)[][] }) {
   );
 }
 
+function HashmapView({ entries }: { entries: Record<string, string | null> }) {
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {Object.entries(entries).map(([k, v]) => (
+        <div key={k} className="flex flex-col items-center border border-zinc-700 rounded overflow-hidden">
+          <div className="px-2 py-1 text-xs bg-zinc-800 w-full text-center">{k}</div>
+          <div className="px-2 py-1 text-sm">{v}</div>
+        </div>
+      ))}
+      {Object.keys(entries).length === 0 && <span className="text-zinc-500 text-sm">empty</span>}
+    </div>
+  );
+}
+
 function ValueView({ value }: { value: TraceValue }) {
   switch (value.renderer) {
     case "array":
     case "queue":
       return <ArrayView values={value.values ?? []} />;
+    case "hashmap":
+      return <HashmapView entries={value.entries ?? {}} />;
     case "linked_list":
       return <LinkedListView nodes={value.nodes ?? []} />;
     case "binary_tree":

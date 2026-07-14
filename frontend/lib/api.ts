@@ -108,12 +108,13 @@ export async function startTrace(sessionId: string, code: string): Promise<void>
 export type TraceValue = {
   type: string;
   repr: string | null;
-  renderer: "scalar" | "array" | "queue" | "linked_list" | "binary_tree" | "dp_table" | "graph" | "object";
+  renderer: "scalar" | "array" | "queue" | "linked_list" | "binary_tree" | "dp_table" | "graph" | "hashmap" | "object";
   values?: (string | null)[];
   nodes?: (string | null)[];
   tree?: TreeNode | null;
   rows?: (string | null)[][];
   adjacency?: Record<string, (string | null)[]>;
+  entries?: Record<string, string | null>;
   fields?: Record<string, TraceValue>;
 };
 
