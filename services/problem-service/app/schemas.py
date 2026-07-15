@@ -25,6 +25,8 @@ class ProblemDetail(ProblemSummary):
     attribution_text: str | None
     function_name: str | None
     starter_code: str | None
+    hints: list[str]
+    follow_up: str | None
 
     class Config:
         from_attributes = True

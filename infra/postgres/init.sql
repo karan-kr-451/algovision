@@ -35,6 +35,8 @@ CREATE TABLE problems (
     attribution_text    varchar(255),
     function_name       varchar(100),
     starter_code        text,
+    hints               text[] NOT NULL DEFAULT '{}',
+    follow_up           text,
     created_at          timestamptz NOT NULL DEFAULT now()
 );
 

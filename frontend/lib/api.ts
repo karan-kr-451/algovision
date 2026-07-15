@@ -14,10 +14,18 @@ export type ProblemSummary = {
   visualization_tier: "core" | "extended" | "conceptual";
 };
 
+export type ProblemExample = {
+  input: string;
+  output: string;
+  explanation: string | null;
+};
+
 export type ProblemDetail = ProblemSummary & {
   statement: string;
   constraints: string | null;
-  examples: unknown[];
+  examples: ProblemExample[];
+  hints: string[];
+  follow_up: string | null;
   visualization_meta: Record<string, unknown>;
   license: string;
   attribution_text: string | null;

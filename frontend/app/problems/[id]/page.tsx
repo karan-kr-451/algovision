@@ -1,6 +1,7 @@
 import { fetchProblem } from "@/lib/api";
 import Workspace from "@/components/ide/Workspace";
 import NotepadPanel from "@/components/notepad/NotepadPanel";
+import ProblemStatement from "@/components/ProblemStatement";
 import { DifficultyPill, PatternChip } from "@/components/ui";
 
 export default async function ProblemPage({
@@ -19,15 +20,13 @@ export default async function ProblemPage({
           <DifficultyPill difficulty={problem.difficulty} />
           <PatternChip pattern={problem.pattern} />
         </div>
-        <p className="mt-5 whitespace-pre-wrap text-ink-muted leading-relaxed">{problem.statement}</p>
-        {problem.constraints && (
-          <>
-            <h2 className="mt-8 text-sm font-medium text-ink">Constraints</h2>
-            <p className="mt-2 text-ink-subtle text-sm whitespace-pre-wrap font-mono">
-              {problem.constraints}
-            </p>
-          </>
-        )}
+        <ProblemStatement
+          statement={problem.statement}
+          examples={problem.examples}
+          constraints={problem.constraints}
+          hints={problem.hints}
+          followUp={problem.follow_up}
+        />
         {problem.attribution_text && (
           <p className="mt-8 text-xs text-ink-subtle">
             Source: {problem.attribution_text} ({problem.license})

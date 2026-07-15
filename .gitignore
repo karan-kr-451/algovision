@@ -15,3 +15,6 @@ out/
 .claude/
 CLAUDE.md
 tests/ui/*.png
+
+docs
+scratch_trace_test;C

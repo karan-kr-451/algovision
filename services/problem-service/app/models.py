@@ -29,4 +29,6 @@ class Problem(Base):
     attribution_text = Column(String(255))
     function_name = Column(String(100))
     starter_code = Column(Text)
+    hints = Column(ARRAY(String), nullable=False, default=list)
+    follow_up = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
