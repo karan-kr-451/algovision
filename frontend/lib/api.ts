@@ -144,6 +144,25 @@ export async function submitSolution(
   return res.json();
 }
 
+export type RunResult = {
+  all_passed: boolean;
+  runtime_ms: number;
+  test_results: TestCaseResult[];
+};
+
+// Run: checks against sample tests only (matches the Examples shown on the
+// problem page), nothing recorded — the fast-feedback tier LeetCode's own
+// Run button provides, distinct from the judged/recorded Submit.
+export async function runSolution(problemId: string, code: string): Promise<RunResult> {
+  const res = await fetch(`${JUDGE_API}/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ problem_id: problemId, language: "python", code }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail ?? "Run failed");
+  return res.json();
+}
+
 export async function startTrace(sessionId: string, code: string, background = false): Promise<void> {
   const res = await fetch(`${TRACE_API}/trace`, {
     method: "POST",

@@ -71,24 +71,20 @@ def _update_mastery(db: Session, user_id: uuid.UUID, pattern: str, accepted: boo
     progress.mastery_score = progress.accuracy
 
 
-@app.post("/submissions", response_model=schemas.SubmissionOut)
-def submit(payload: schemas.SubmissionCreate, db: Session = Depends(get_db)):
-    problem = db.query(Problem).filter(Problem.id == payload.problem_id).first()
-    if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
-    if not problem.testcases:
-        raise HTTPException(status_code=400, detail="Problem has no judge-compatible testcases")
-
+def _execute_testcases(problem: Problem, code: str, testcases: list) -> tuple[list[schemas.TestCaseResult], str, int]:
+    """Runs `code` against `testcases` in the sandbox. Shared by /run (sample
+    subset, nothing recorded) and /submissions (full set, recorded) — the two
+    LeetCode-style tiers: fast sample feedback vs. the judged full test suite."""
     results: list[schemas.TestCaseResult] = []
     verdict = "accepted"
     total_runtime = 0
 
-    for tc in problem.testcases:
+    for tc in testcases:
         if problem.function_name:
-            harness_code = _build_function_harness(payload.code, problem.function_name, tc["args"])
+            harness_code = _build_function_harness(code, problem.function_name, tc["args"])
             stdout, runtime_ms, error = run_in_sandbox(harness_code, "")
         else:
-            stdout, runtime_ms, error = run_in_sandbox(payload.code, tc["input"])
+            stdout, runtime_ms, error = run_in_sandbox(code, tc["input"])
         total_runtime += runtime_ms
 
         if error == "timeout":
@@ -119,6 +115,42 @@ def submit(payload: schemas.SubmissionCreate, db: Session = Depends(get_db)):
         if not passed:
             verdict = "wrong_answer"
             break
+
+    return results, verdict, total_runtime
+
+
+# Sample tests shown to the user (matches the Examples on the problem page) —
+# LeetCode's "Run" checks these only; full grading happens on Submit.
+SAMPLE_TESTCASE_COUNT = 3
+
+
+@app.post("/run", response_model=schemas.RunOut)
+def run(payload: schemas.RunRequest, db: Session = Depends(get_db)):
+    problem = db.query(Problem).filter(Problem.id == payload.problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    if not problem.testcases:
+        raise HTTPException(status_code=400, detail="Problem has no judge-compatible testcases")
+
+    sample = problem.testcases[:SAMPLE_TESTCASE_COUNT]
+    results, verdict, total_runtime = _execute_testcases(problem, payload.code, sample)
+
+    return schemas.RunOut(
+        all_passed=(verdict == "accepted" and len(results) == len(sample)),
+        runtime_ms=total_runtime,
+        test_results=results,
+    )
+
+
+@app.post("/submissions", response_model=schemas.SubmissionOut)
+def submit(payload: schemas.SubmissionCreate, db: Session = Depends(get_db)):
+    problem = db.query(Problem).filter(Problem.id == payload.problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    if not problem.testcases:
+        raise HTTPException(status_code=400, detail="Problem has no judge-compatible testcases")
+
+    results, verdict, total_runtime = _execute_testcases(problem, payload.code, problem.testcases)
 
     solution = Solution(
         user_id=payload.user_id,
