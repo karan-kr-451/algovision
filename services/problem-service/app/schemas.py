@@ -27,6 +27,7 @@ class ProblemDetail(ProblemSummary):
     starter_code: str | None
     hints: list[str]
     follow_up: str | None
+    harness_type: str
 
     class Config:
         from_attributes = True

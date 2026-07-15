@@ -41,6 +41,28 @@ def _build_function_harness(code: str, function_name: str, args: list) -> str:
     )
 
 
+def _build_class_harness(code: str, class_name: str, operations: list, args_list: list) -> str:
+    """Wraps a stateful, multi-method 'design' solution (Trie, MedianFinder, ...):
+    instantiate the class with the first operation's args, then call each
+    subsequent operation in order, collecting every return value (None for the
+    constructor, matching LeetCode's own judging convention for design problems)
+    into a single JSON list printed at the end. Each operation's args are static
+    — they can't reference an earlier operation's result (no chaining support yet)."""
+    ops_b64 = base64.b64encode(json.dumps(operations).encode()).decode()
+    args_b64 = base64.b64encode(json.dumps(args_list).encode()).decode()
+    return (
+        code
+        + "\n\nimport json, base64\n"
+        + f"_ops = json.loads(base64.b64decode('{ops_b64}').decode())\n"
+        + f"_args = json.loads(base64.b64decode('{args_b64}').decode())\n"
+        + "_results = [None]\n"
+        + f"_obj = {class_name}(*_args[0])\n"
+        + "for _op, _a in zip(_ops[1:], _args[1:]):\n"
+        + "    _results.append(getattr(_obj, _op)(*_a))\n"
+        + "print(json.dumps(_results))\n"
+    )
+
+
 def _update_streak(db: Session, user_id: uuid.UUID):
     """Consecutive-day streak: bump when the previous accepted day was yesterday,
     keep unchanged if already accepted today, reset to 1 otherwise."""
@@ -80,7 +102,10 @@ def _execute_testcases(problem: Problem, code: str, testcases: list) -> tuple[li
     total_runtime = 0
 
     for tc in testcases:
-        if problem.function_name:
+        if problem.harness_type == "operations":
+            harness_code = _build_class_harness(code, problem.function_name, tc["operations"], tc["args"])
+            stdout, runtime_ms, error = run_in_sandbox(harness_code, "")
+        elif problem.function_name:
             harness_code = _build_function_harness(code, problem.function_name, tc["args"])
             stdout, runtime_ms, error = run_in_sandbox(harness_code, "")
         else:
@@ -96,7 +121,7 @@ def _execute_testcases(problem: Problem, code: str, testcases: list) -> tuple[li
             results.append(schemas.TestCaseResult(passed=False, runtime_ms=runtime_ms, error=stdout))
             break
 
-        if problem.function_name:
+        if problem.harness_type in ("operations", "function"):
             expected = json.dumps(tc["expected"])
             try:
                 passed = json.loads(stdout.strip()) == tc["expected"]

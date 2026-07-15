@@ -37,6 +37,7 @@ CREATE TABLE problems (
     starter_code        text,
     hints               text[] NOT NULL DEFAULT '{}',
     follow_up           text,
+    harness_type        varchar(20) NOT NULL DEFAULT 'stdio',  -- 'function' | 'stdio' | 'operations'
     created_at          timestamptz NOT NULL DEFAULT now()
 );
 
@@ -797,3 +798,42 @@ INSERT INTO problems (title, difficulty, pattern, statement, constraints, exampl
  'alienOrder', E'def alienOrder(words):\n    pass\n',
  ARRAY['Compare each pair of adjacent words to find the first position where they differ — that tells you one letter must come before another. Build this as a directed graph.', 'A topological sort of that graph gives a valid letter ordering; if the graph has a cycle, no valid ordering exists.'],
  NULL);
+
+-- Backfill harness_type for rows inserted above without it set explicitly
+-- (function-signature problems all have function_name set; everything else stays 'stdio').
+UPDATE problems SET harness_type = 'function' WHERE function_name IS NOT NULL AND harness_type = 'stdio';
+
+-- Blind 75 'design' problems: operations-sequence harness (harness_type='operations').
+-- Each testcase is a static sequence of method calls + args + expected returns —
+-- no result-chaining between calls yet (see CLAUDE.md decision note for what that blocks).
+INSERT INTO problems (title, difficulty, pattern, statement, constraints, examples, testcases, tags, source, visualization_tier, visualization_meta, function_name, starter_code, hints, follow_up, harness_type) VALUES
+
+('Implement Trie (Prefix Tree)', 'medium', 'trie',
+ 'Implement a Trie with an insert, search, and startsWith method. insert(word) adds a word to the trie. search(word) returns true only if word was previously inserted exactly. startsWith(prefix) returns true if any inserted word begins with prefix. For judging, each testcase is a sequence of operations (the first is always the constructor) with their arguments, and the expected return value of each (null for the constructor and for insert, which return nothing).',
+ E'- 1 <= word.length, prefix.length <= 2000\n- word and prefix consist of lowercase English letters.\n- At most 3 * 10^4 total calls across insert, search, and startsWith.',
+ '[{"input": "insert(\"apple\"); search(\"apple\"); search(\"app\"); startsWith(\"app\"); insert(\"app\"); search(\"app\")", "output": "[null, true, false, true, null, true]", "explanation": "\"app\" alone was never inserted until the second insert call, so the first search(\"app\") is false even though startsWith(\"app\") is true."}]',
+ '[{"operations": ["Trie","insert","search","search","startsWith","insert","search"], "args": [[],["apple"],["apple"],["app"],["app"],["app"],["app"]], "expected": [null,null,true,false,true,null,true]}, {"operations": ["Trie","search","insert","search"], "args": [[],["a"],["a"],["a"]], "expected": [null,false,null,true]}]',
+ ARRAY['trie','blind75'], 'blind75', 'core', '{"trie": true}',
+ 'Trie', E'class Trie:\n    def __init__(self):\n        pass\n\n    def insert(self, word):\n        pass\n\n    def search(self, word):\n        pass\n\n    def startsWith(self, prefix):\n        pass\n',
+ ARRAY['Each trie node needs a dictionary of child nodes keyed by character, plus a flag marking whether a word ends exactly there.', 'search requires that end-of-word flag; startsWith only cares whether the path of characters exists at all.'],
+ NULL, 'operations'),
+
+('Design Add and Search Words Data Structure', 'medium', 'trie',
+ 'Design a data structure that supports adding words and searching for a word, where the search word may contain ''.'' characters that each match any single letter. Implement addWord(word) and search(word). For judging, each testcase is a sequence of operations (the first is the constructor) with their arguments, and the expected return value of each.',
+ E'- 1 <= word.length <= 25\n- word consists of lowercase English letters and possibly ''.''  in search calls only.\n- At most 3 * 10^4 total calls.',
+ '[{"input": "addWord(\"bad\"); addWord(\"dad\"); addWord(\"mad\"); search(\"pad\"); search(\"bad\"); search(\".ad\"); search(\"b..\")", "output": "[null, null, null, false, true, true, true]", "explanation": "\".ad\" matches \"bad\", \"dad\", or \"mad\"; \"b..\" matches \"bad\"."}]',
+ '[{"operations": ["WordDictionary","addWord","addWord","addWord","search","search","search","search"], "args": [[],["bad"],["dad"],["mad"],["pad"],["bad"],[".ad"],["b.."]], "expected": [null,null,null,null,false,true,true,true]}, {"operations": ["WordDictionary","addWord","search","search"], "args": [[],["a"],[".b"],["a"]], "expected": [null,null,false,true]}]',
+ ARRAY['trie','backtracking','blind75'], 'blind75', 'core', '{"trie": true}',
+ 'WordDictionary', E'class WordDictionary:\n    def __init__(self):\n        pass\n\n    def addWord(self, word):\n        pass\n\n    def search(self, word):\n        pass\n',
+ ARRAY['A trie works the same way as for plain word storage.', 'When search hits a ''.'', branch into every child at that position instead of just one, since ''.'' can match any letter there.'],
+ NULL, 'operations'),
+
+('Find Median from Data Stream', 'hard', 'heap',
+ 'Design a data structure that supports adding integers one at a time (addNum) and, at any point, returning the median of all numbers added so far (findMedian). For judging, each testcase is a sequence of operations (the first is the constructor) with their arguments, and the expected return value of each (null for the constructor and for addNum).',
+ E'- -10^5 <= num <= 10^5\n- findMedian is only called after at least one addNum.\n- At most 5 * 10^4 total calls.',
+ '[{"input": "addNum(1); addNum(2); findMedian(); addNum(3); findMedian()", "output": "[null, null, 1.5, null, 2.0]", "explanation": "After [1,2] the median is (1+2)/2 = 1.5; after [1,2,3] the median is the middle value, 2."}]',
+ '[{"operations": ["MedianFinder","addNum","addNum","findMedian","addNum","findMedian"], "args": [[],[1],[2],[],[3],[]], "expected": [null,null,null,1.5,null,2.0]}, {"operations": ["MedianFinder","addNum","findMedian"], "args": [[],[5],[]], "expected": [null,null,5.0]}]',
+ ARRAY['heap','blind75'], 'blind75', 'core', '{}',
+ 'MedianFinder', E'class MedianFinder:\n    def __init__(self):\n        pass\n\n    def addNum(self, num):\n        pass\n\n    def findMedian(self):\n        pass\n',
+ ARRAY['Keep two heaps: a max-heap for the smaller half of the numbers and a min-heap for the larger half, kept balanced in size.', 'The median is then either the top of whichever heap has one more element, or the average of both tops when they''re equal in size.'],
+ NULL, 'operations');

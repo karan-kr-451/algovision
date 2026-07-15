@@ -19,6 +19,7 @@ class Problem(Base):
     pattern = Column(String(100), nullable=False)
     testcases = Column(JSONB, nullable=False, default=list)
     function_name = Column(String(100))
+    harness_type = Column(String(20), nullable=False, default="stdio")
 
 
 class User(Base):

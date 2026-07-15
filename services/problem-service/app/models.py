@@ -31,4 +31,5 @@ class Problem(Base):
     starter_code = Column(Text)
     hints = Column(ARRAY(String), nullable=False, default=list)
     follow_up = Column(Text)
+    harness_type = Column(String(20), nullable=False, default="stdio")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
