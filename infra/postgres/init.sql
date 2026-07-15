@@ -837,3 +837,39 @@ INSERT INTO problems (title, difficulty, pattern, statement, constraints, exampl
  'MedianFinder', E'class MedianFinder:\n    def __init__(self):\n        pass\n\n    def addNum(self, num):\n        pass\n\n    def findMedian(self):\n        pass\n',
  ARRAY['Keep two heaps: a max-heap for the smaller half of the numbers and a min-heap for the larger half, kept balanced in size.', 'The median is then either the top of whichever heap has one more element, or the average of both tops when they''re equal in size.'],
  NULL, 'operations');
+
+-- Blind 75: last 3 legitimately-buildable of the 6 that were missing after a precise
+-- recount against the canonical 75-title list (see CLAUDE.md decision note — the earlier
+-- '12 deliberately not built' estimate was imprecise). Encode/Decode Strings tests
+-- encode and decode as two independent fixed-format checks (no result-chaining needed).
+INSERT INTO problems (title, difficulty, pattern, statement, constraints, examples, testcases, tags, source, visualization_tier, visualization_meta, function_name, starter_code, hints, follow_up, harness_type) VALUES
+
+('Longest Common Subsequence', 'medium', 'dp',
+ 'Given two strings text1 and text2, return the length of their longest common subsequence (a sequence that appears in both strings in the same relative order, but not necessarily contiguously). Return 0 if there is no common subsequence.',
+ E'- 1 <= text1.length, text2.length <= 1000\n- text1 and text2 consist of lowercase English letters.',
+ '[{"input": "text1 = \"abcde\", text2 = \"ace\"", "output": "3", "explanation": "The longest common subsequence is \"ace\", length 3."}, {"input": "text1 = \"abc\", text2 = \"def\"", "output": "0", "explanation": "There is no common subsequence."}]',
+ '[{"args": ["abcde", "ace"], "expected": 3}, {"args": ["abc", "def"], "expected": 0}, {"args": ["abc", "abc"], "expected": 3}]',
+ ARRAY['dp','blind75'], 'blind75', 'core', '{"dp_1d": true}',
+ 'longestCommonSubsequence', E'def longestCommonSubsequence(text1, text2):\n    pass\n',
+ ARRAY['Build a 2D table where dp[i][j] is the LCS length using the first i characters of text1 and the first j of text2.', 'If the two characters at positions i-1 and j-1 match, extend the diagonal; otherwise take the best of dropping one character from either string.'],
+ NULL, 'function'),
+
+('Invert Binary Tree', 'easy', 'trees',
+ 'Given the root of a binary tree, swap every left and right child throughout the entire tree (mirror it), and return the resulting tree. For judging, the tree is passed in and returned as a level-order list with None for missing nodes.',
+ E'- The number of nodes is in the range [0, 100].\n- -100 <= Node.val <= 100',
+ '[{"input": "root = [4,2,7,1,3,6,9]", "output": "[4,7,2,9,6,3,1]", "explanation": null}, {"input": "root = [2,1,3]", "output": "[2,3,1]", "explanation": null}]',
+ '[{"args": [[4,2,7,1,3,6,9]], "expected": [4,7,2,9,6,3,1]}, {"args": [[2,1,3]], "expected": [2,3,1]}, {"args": [[]], "expected": []}]',
+ ARRAY['tree','blind75'], 'blind75', 'core', '{"tree": true}',
+ 'invertTree', E'def invertTree(values):\n    pass\n',
+ ARRAY['This is naturally recursive: invert the left subtree, invert the right subtree, then swap them at the current node.'],
+ NULL, 'function'),
+
+('Encode and Decode Strings', 'medium', 'string',
+ 'Design an algorithm to encode a list of strings into a single string, and decode that string back into the original list of strings. Use this length-prefixed format: for each string s, write its length, then ''#'', then the string itself, with no separator between entries (e.g. encoding ["hello","world"] produces "5#hello5#world"). For judging, encode and decode are tested independently, each against a fixed input.',
+ E'- 0 <= strs.length <= 200\n- 0 <= strs[i].length <= 200\n- strs[i] contains only printable ASCII characters.',
+ '[{"input": "encode([\"hello\",\"world\"])", "output": "\"5#hello5#world\"", "explanation": null}, {"input": "decode(\"5#hello5#world\")", "output": "[\"hello\",\"world\"]", "explanation": null}]',
+ '[{"operations": ["Codec","encode","decode"], "args": [[], [["hello","world"]], ["5#hello5#world"]], "expected": [null, "5#hello5#world", ["hello","world"]]}, {"operations": ["Codec","encode","decode"], "args": [[], [[]], [""]], "expected": [null, "", []]}]',
+ ARRAY['string','blind75'], 'blind75', 'core', '{}',
+ 'Codec', E'class Codec:\n    def encode(self, strs):\n        pass\n\n    def decode(self, s):\n        pass\n',
+ ARRAY['A length prefix before each string tells decode exactly how many characters to consume next, so the ''#'' delimiter can never be confused with a character inside the string itself.'],
+ NULL, 'operations');
