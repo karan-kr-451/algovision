@@ -44,7 +44,7 @@ function SketchCanvas({
       ref={canvasRef}
       width={560}
       height={280}
-      className="border border-zinc-800 rounded bg-zinc-950 touch-none cursor-crosshair w-full"
+      className="border border-hairline rounded bg-canvas touch-none cursor-crosshair w-full"
       onPointerDown={(e) => {
         drawing.current = true;
         current.current = { points: [pos(e)] };
@@ -116,14 +116,14 @@ export default function NotepadPanel({ problemId }: { problemId: string }) {
   if (!user) return null;
 
   return (
-    <div className="border-t border-zinc-800">
+    <div className="border-t border-hairline">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 flex justify-between"
+        className="w-full text-left px-4 py-2 text-sm text-ink-muted hover:text-ink flex justify-between"
       >
         <span>Notepad</span>
         <span className="text-xs">
-          {!saved && <span className="text-yellow-500 mr-2">saving…</span>}
+          {!saved && <span className="text-warn mr-2">saving…</span>}
           {open ? "▾" : "▸"}
         </span>
       </button>
@@ -135,7 +135,7 @@ export default function NotepadPanel({ problemId }: { problemId: string }) {
                 key={m}
                 onClick={() => setMode(m)}
                 className={`text-xs px-2 py-1 rounded border ${
-                  mode === m ? "border-blue-500 text-blue-400" : "border-zinc-700 text-zinc-400"
+                  mode === m ? "border-accent text-accent" : "border-hairline-strong text-ink-muted"
                 }`}
               >
                 {m}
@@ -150,7 +150,7 @@ export default function NotepadPanel({ problemId }: { problemId: string }) {
                 scheduleAutosave("text", { markdown: e.target.value });
               }}
               placeholder="Notes on your approach, complexity, why it failed…"
-              className="w-full h-40 bg-zinc-950 border border-zinc-800 rounded p-2 text-sm resize-y"
+              className="w-full h-40 bg-canvas border border-hairline rounded p-2 text-sm resize-y"
             />
           ) : (
             <div>
@@ -166,7 +166,7 @@ export default function NotepadPanel({ problemId }: { problemId: string }) {
                   setStrokes([]);
                   scheduleAutosave("sketch", { strokes: [] });
                 }}
-                className="text-xs text-zinc-500 hover:text-zinc-300 mt-1"
+                className="text-xs text-ink-subtle hover:text-ink-muted mt-1"
               >
                 clear
               </button>

@@ -25,7 +25,7 @@ function toSlots(node: TreeNode | null, path: string): SlotNode {
 }
 
 export function BinaryTreeView({ tree }: { tree: TreeNode | null }) {
-  if (!tree) return <span className="text-zinc-500 text-sm">null</span>;
+  if (!tree) return <span className="text-ink-subtle text-sm">null</span>;
 
   const root = hierarchy(toSlots(tree, "T"), (d) => d.children);
   d3tree<SlotNode>().nodeSize([NODE_R * 2.6, NODE_R * 3.4])(root);
@@ -182,7 +182,7 @@ export function WeightedGraphView({
 // Trie renders through the same slot-based d3 layout as binary trees, but with
 // edge labels (the characters) and unlabeled nodes; terminal markers ($) shown filled.
 export function TrieView({ trie }: { trie: TrieNode | null }) {
-  if (!trie) return <span className="text-zinc-500 text-sm">empty</span>;
+  if (!trie) return <span className="text-ink-subtle text-sm">empty</span>;
 
   type TrieSlot = { edge: string | null; terminal: boolean; path: string; children: TrieSlot[] };
   function toSlots(node: TrieNode, path: string): TrieSlot[] {

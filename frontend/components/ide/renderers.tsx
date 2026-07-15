@@ -33,16 +33,16 @@ export function ArrayView({
               transition={{ duration: 0.25 }}
               className="flex flex-col items-center"
             >
-              <div className="w-10 h-10 flex items-center justify-center border border-zinc-700 rounded text-sm">
+              <div className="w-10 h-10 flex items-center justify-center border border-hairline-strong rounded text-sm">
                 {v}
               </div>
-              <span className="text-[10px] text-zinc-500 mt-0.5">{i}</span>
+              <span className="text-[10px] text-ink-subtle mt-0.5">{i}</span>
               <div className="flex flex-col items-center min-h-[16px]">
                 {cellPointers.map((p) => (
                   <motion.span
                     key={p.name}
                     layoutId={`ptr-${p.name}`}
-                    className="text-[10px] text-blue-400 leading-tight"
+                    className="text-[10px] text-live leading-tight"
                   >
                     ▲ {p.name}
                   </motion.span>
@@ -52,7 +52,7 @@ export function ArrayView({
           );
         })}
       </AnimatePresence>
-      {values.length === 0 && <span className="text-zinc-500 text-sm">empty</span>}
+      {values.length === 0 && <span className="text-ink-subtle text-sm">empty</span>}
     </div>
   );
 }
@@ -78,16 +78,16 @@ export function LinkedListView({
           >
             <div
               className={`w-10 h-10 flex items-center justify-center border rounded text-sm ${
-                i === highlightIndex ? "border-blue-400 bg-blue-500/20" : "border-zinc-700"
+                i === highlightIndex ? "border-live bg-live/20" : "border-hairline-strong"
               }`}
             >
               {v}
             </div>
-            {i < nodes.length - 1 && <span className="text-zinc-500">&rarr;</span>}
+            {i < nodes.length - 1 && <span className="text-ink-subtle">&rarr;</span>}
           </motion.div>
         ))}
       </AnimatePresence>
-      {nodes.length === 0 && <span className="text-zinc-500 text-sm">empty</span>}
+      {nodes.length === 0 && <span className="text-ink-subtle text-sm">empty</span>}
     </div>
   );
 }
@@ -113,14 +113,14 @@ export function HashmapView({
               backgroundColor: changed?.has(k) ? "rgba(59,130,246,0.35)" : "rgba(0,0,0,0)",
             }}
             exit={{ opacity: 0, scale: 0.6 }}
-            className="flex flex-col items-center border border-zinc-700 rounded overflow-hidden"
+            className="flex flex-col items-center border border-hairline-strong rounded overflow-hidden"
           >
-            <div className="px-2 py-1 text-xs bg-zinc-800 w-full text-center">{k}</div>
+            <div className="px-2 py-1 text-xs bg-surface-2 w-full text-center">{k}</div>
             <div className="px-2 py-1 text-sm">{v}</div>
           </motion.div>
         ))}
       </AnimatePresence>
-      {Object.keys(entries).length === 0 && <span className="text-zinc-500 text-sm">empty</span>}
+      {Object.keys(entries).length === 0 && <span className="text-ink-subtle text-sm">empty</span>}
     </div>
   );
 }
@@ -146,7 +146,7 @@ export function DpTableView({
                     : "rgba(0,0,0,0)",
                 }}
                 transition={{ duration: 0.3 }}
-                className="w-9 h-9 border border-zinc-700 text-center text-sm"
+                className="w-9 h-9 border border-hairline-strong text-center text-sm"
               >
                 {cell}
               </motion.td>

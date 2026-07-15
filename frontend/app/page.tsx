@@ -11,6 +11,7 @@ import {
   type WeakPattern,
 } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
+import { DifficultyPill, PatternChip } from "@/components/ui";
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -40,29 +41,46 @@ export default function Dashboard() {
     : fallback.map((p) => ({ id: p.id, title: p.title, difficulty: p.difficulty, pattern: p.pattern }));
 
   return (
-    <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-10 flex flex-col gap-8">
+    <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-12 flex flex-col gap-10">
       <section>
-        <h1 className="text-2xl font-semibold">
-          {user ? `Welcome back, ${user.name}` : "Welcome"}
+        <h1 className="text-3xl font-semibold">
+          {user ? `Welcome back, ${user.name}` : "Learn algorithms by watching your own code run"}
         </h1>
-        <p className="text-zinc-400 mt-1">Visualize along with code — not after it.</p>
+        <p className="text-ink-muted mt-2">Visualize along with code — not after it.</p>
       </section>
 
       <section className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg border border-zinc-800 p-4">
-          <div className="text-zinc-400 text-sm">Streak</div>
-          <div className="text-3xl font-semibold mt-1">
-            {user ? `${user.streak} day${user.streak === 1 ? "" : "s"}` : "—"}
+        <div className="rounded-[10px] border border-hairline bg-surface-1 p-5">
+          <div className="text-ink-subtle text-xs uppercase tracking-wide">Streak</div>
+          <div className="text-3xl font-semibold mt-2">
+            {user ? (
+              <>
+                <span className="text-warn">⚡</span> {user.streak}{" "}
+                <span className="text-base text-ink-muted font-normal">
+                  day{user.streak === 1 ? "" : "s"}
+                </span>
+              </>
+            ) : (
+              <span className="text-ink-subtle">—</span>
+            )}
           </div>
         </div>
-        <div className="rounded-lg border border-zinc-800 p-4">
-          <div className="text-zinc-400 text-sm">Weak patterns</div>
-          <div className="mt-1">
-            {weak.length === 0 && <span className="text-3xl font-semibold">—</span>}
+        <div className="rounded-[10px] border border-hairline bg-surface-1 p-5">
+          <div className="text-ink-subtle text-xs uppercase tracking-wide">Weak patterns</div>
+          <div className="mt-2 flex flex-col gap-2">
+            {weak.length === 0 && <span className="text-3xl font-semibold text-ink-subtle">—</span>}
             {weak.map((w) => (
-              <div key={w.pattern} className="text-sm flex justify-between">
-                <span>{w.pattern}</span>
-                <span className="text-zinc-500">{Math.round(w.mastery_score * 100)}%</span>
+              <div key={w.pattern}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-mono text-ink-muted">{w.pattern}</span>
+                  <span className="text-ink-subtle">{Math.round(w.mastery_score * 100)}%</span>
+                </div>
+                <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-accent-strong"
+                    style={{ width: `${Math.max(w.mastery_score * 100, 4)}%` }}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -71,21 +89,21 @@ export default function Dashboard() {
 
       <section>
         <h2 className="text-lg font-medium mb-3">
-          {user ? "Recommended next" : "Popular problems"}
+          {user ? "Recommended next" : "Start here"}
         </h2>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-err text-sm">{error}</p>}
         <div className="flex flex-col gap-2">
           {cards.map((p) => (
             <Link
               key={p.id}
               href={`/problems/${p.id}`}
-              className="rounded-lg border border-zinc-800 p-4 hover:border-zinc-600 flex justify-between items-center"
+              className="rounded-[10px] border border-hairline bg-surface-1 p-4 hover:border-hairline-strong transition-colors flex justify-between items-center"
             >
-              <div>
-                <div>{p.title}</div>
-                <div className="text-xs text-zinc-500 mt-1">{p.pattern}</div>
+              <div className="flex items-center gap-3">
+                <span>{p.title}</span>
+                <PatternChip pattern={p.pattern} />
               </div>
-              <span className="text-xs uppercase text-zinc-400">{p.difficulty}</span>
+              <DifficultyPill difficulty={p.difficulty} />
             </Link>
           ))}
         </div>

@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { fetchProblems } from "@/lib/api";
-
-const difficultyColor: Record<string, string> = {
-  easy: "text-green-400",
-  medium: "text-yellow-400",
-  hard: "text-red-400",
-};
+import { DifficultyPill, PatternChip } from "@/components/ui";
 
 export default async function ProblemsPage() {
   let problems: Awaited<ReturnType<typeof fetchProblems>> = [];
@@ -17,23 +12,24 @@ export default async function ProblemsPage() {
   }
 
   return (
-    <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-10 flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Problems</h1>
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-      <div className="flex flex-col gap-2">
+    <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Problems</h1>
+        <p className="text-ink-subtle text-sm mt-1">{problems.length} problems</p>
+      </div>
+      {error && <p className="text-err text-sm">{error}</p>}
+      <div className="flex flex-col rounded-[10px] border border-hairline overflow-hidden divide-y divide-hairline">
         {problems.map((p) => (
           <Link
             key={p.id}
             href={`/problems/${p.id}`}
-            className="rounded-lg border border-zinc-800 p-4 hover:border-zinc-600 flex justify-between items-center"
+            className="bg-surface-1 px-4 py-3 hover:bg-surface-2 transition-colors flex justify-between items-center"
           >
-            <div>
-              <div>{p.title}</div>
-              <div className="text-xs text-zinc-500 mt-1">{p.pattern}</div>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="truncate">{p.title}</span>
+              <PatternChip pattern={p.pattern} />
             </div>
-            <span className={`text-xs uppercase ${difficultyColor[p.difficulty]}`}>
-              {p.difficulty}
-            </span>
+            <DifficultyPill difficulty={p.difficulty} />
           </Link>
         ))}
       </div>

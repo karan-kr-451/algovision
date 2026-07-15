@@ -7,8 +7,36 @@ import {
   type TraceFrame,
   type TraceValue,
 } from "@/lib/api";
+import { MotionConfig } from "framer-motion";
 import { ArrayView, DpTableView, HashmapView, LinkedListView, ScalarView, type Pointer } from "./renderers";
 import { BinaryTreeView, GraphView, HeapTreeView, TrieView, WeightedGraphView } from "./layouts";
+
+const STRUCTURE_LABELS: Record<string, string> = {
+  array: "array",
+  queue: "queue",
+  linked_list: "linked list",
+  binary_tree: "binary tree",
+  dp_table: "dp table",
+  graph: "graph",
+  weighted_graph: "weighted graph",
+  trie: "trie",
+  hashmap: "hash map",
+};
+
+// Detected-structure label (spec §4.3): the most complex structure visible in
+// the current frame, shown as a subtle chip so users learn to recognize shapes.
+function detectStructureLabel(variables: Record<string, TraceValue>): string | null {
+  const priority = [
+    "weighted_graph", "graph", "trie", "binary_tree", "dp_table",
+    "linked_list", "hashmap", "queue", "array",
+  ];
+  for (const renderer of priority) {
+    if (Object.values(variables).some((v) => v.renderer === renderer)) {
+      return STRUCTURE_LABELS[renderer];
+    }
+  }
+  return null;
+}
 
 const SPEEDS = [0.5, 1, 2, 5];
 const BASE_STEP_MS = 800;
@@ -96,7 +124,7 @@ function ArrayOrHeapView({
       {value.heap_property && (
         <button
           onClick={() => setAsHeap(!asHeap)}
-          className="text-[10px] text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded px-1.5 py-0.5 mb-1"
+          className="text-[10px] text-ink-subtle hover:text-ink-muted border border-hairline rounded px-1.5 py-0.5 mb-1"
         >
           {asHeap ? "as array" : "as heap tree"}
         </button>
@@ -135,7 +163,7 @@ function ValueView({
       const alias = findAlias(name, value, variables);
       if (alias) {
         return (
-          <div className="text-sm text-blue-400">
+          <div className="text-sm text-live">
             → node {alias.nodeIndex} of <span className="font-mono">{alias.listName}</span>
           </div>
         );
@@ -170,12 +198,12 @@ function LineHitOverlay({ frames }: { frames: TraceFrame[] }) {
     <div className="flex flex-col gap-0.5">
       {rows.map(([line, count]) => (
         <div key={line} className="flex items-center gap-2 text-xs">
-          <span className="text-zinc-500 w-12 text-right font-mono">L{line}</span>
-          <div className="h-3 bg-blue-500/50 rounded-sm" style={{ width: `${(count / max) * 160}px` }} />
-          <span className="text-zinc-400">{count}×</span>
+          <span className="text-ink-subtle w-12 text-right font-mono">L{line}</span>
+          <div className="h-3 bg-live/50 rounded-sm" style={{ width: `${(count / max) * 160}px` }} />
+          <span className="text-ink-muted">{count}×</span>
         </div>
       ))}
-      <p className="text-[10px] text-zinc-600 mt-1">
+      <p className="text-[10px] text-ink-subtle mt-1">
         measured executions per line, this trace ({frames.length} steps)
       </p>
     </div>
@@ -284,107 +312,117 @@ export default function VisualizationPanel({ code }: { code: string }) {
 
   const frame = frames[cursor];
   const prevFrame = cursor > 0 ? frames[cursor - 1] : undefined;
+  const structureLabel = frame ? detectStructureLabel(frame.variables) : null;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
-        <span className="text-sm text-zinc-400">
-          Visualization
-          {liveNote && <span className="ml-2 text-xs text-yellow-500/80">{liveNote}</span>}
-        </span>
-        <div className="flex items-center gap-2">
-          {frames.length > 0 && (
-            <button
-              onClick={() => setShowComplexity(!showComplexity)}
-              className={`text-xs px-2 py-1 rounded border ${
-                showComplexity ? "border-blue-500 text-blue-400" : "border-zinc-700 text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              hotspots
-            </button>
-          )}
-          <button
-            onClick={() => runTrace(false)}
-            disabled={status === "running" && frames.length === 0}
-            className="text-sm bg-zinc-100 text-zinc-900 px-3 py-1 rounded hover:bg-white disabled:opacity-50"
-          >
-            {status === "running" ? "Tracing…" : "Visualize"}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto p-4">
-        {!frame && status === "idle" && (
-          <p className="text-zinc-500 text-sm">
-            Start typing, or click Visualize — the panel traces your real execution.
-          </p>
-        )}
-        {showComplexity && frames.length > 0 && (
-          <div className="mb-4 border-b border-zinc-800 pb-3">
-            <LineHitOverlay frames={frames} />
-          </div>
-        )}
-        {frame && (
-          <div className="flex flex-col gap-4">
-            <div className="text-xs text-zinc-500">
-              step {frame.step} · line {frame.line}
-              {frame.recursion.active && ` · recursion depth ${frame.recursion.depth}`}
-            </div>
-            {Object.entries(frame.variables).map(([name, value]) => (
-              <div key={name}>
-                <div className="text-xs text-zinc-400 mb-1 font-mono">{name}</div>
-                <ValueView
-                  name={name}
-                  value={value}
-                  prev={prevFrame?.variables[name]}
-                  variables={frame.variables}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {frames.length > 0 && (
-        <div className="border-t border-zinc-800 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (!playing && cursor >= frames.length - 1) setCursor(0);
-              setPlaying(!playing);
-            }}
-            className="text-sm text-zinc-300 hover:text-white w-6"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {playing ? "❚❚" : "▶"}
-          </button>
-          <select
-            value={speed}
-            onChange={(e) => setSpeed(Number(e.target.value))}
-            className="bg-transparent text-xs text-zinc-400 border border-zinc-700 rounded px-1 py-0.5"
-            aria-label="Playback speed"
-          >
-            {SPEEDS.map((s) => (
-              <option key={s} value={s} className="bg-zinc-900">
-                {s}x
-              </option>
-            ))}
-          </select>
-          <input
-            type="range"
-            min={0}
-            max={frames.length - 1}
-            value={cursor}
-            onChange={(e) => {
-              setPlaying(false);
-              setCursor(Number(e.target.value));
-            }}
-            className="flex-1"
-          />
-          <span className="text-xs text-zinc-500 w-16 text-right">
-            {cursor + 1}/{frames.length}
+    <MotionConfig reducedMotion="user">
+      <div className="flex-1 flex flex-col min-h-0 bg-surface-1/40">
+        <div className="flex items-center justify-between px-4 h-10 border-b border-hairline shrink-0">
+          <span className="text-sm text-ink-muted flex items-center gap-2">
+            Visualization
+            {structureLabel && (
+              <span className="text-[11px] font-mono text-live bg-live/10 px-1.5 py-0.5 rounded">
+                {structureLabel} · live
+              </span>
+            )}
+            {liveNote && <span className="text-xs text-warn/90">{liveNote}</span>}
           </span>
+          <div className="flex items-center gap-2">
+            {frames.length > 0 && (
+              <button
+                onClick={() => setShowComplexity(!showComplexity)}
+                className={`text-xs px-2 py-1 rounded-md border transition-colors ${
+                  showComplexity
+                    ? "border-accent text-accent"
+                    : "border-hairline text-ink-subtle hover:text-ink-muted"
+                }`}
+              >
+                hotspots
+              </button>
+            )}
+            <button
+              onClick={() => runTrace(false)}
+              disabled={status === "running" && frames.length === 0}
+              className="text-sm bg-accent-strong text-white px-3 py-1 rounded-md hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              {status === "running" ? "Tracing…" : "Visualize"}
+            </button>
+          </div>
         </div>
-      )}
-    </div>
+
+        <div className="flex-1 overflow-auto p-4">
+          {!frame && status === "idle" && (
+            <p className="text-ink-subtle text-sm">
+              Start typing, or click Visualize — the panel traces your real execution.
+            </p>
+          )}
+          {showComplexity && frames.length > 0 && (
+            <div className="mb-4 border-b border-hairline pb-3">
+              <LineHitOverlay frames={frames} />
+            </div>
+          )}
+          {frame && (
+            <div className="flex flex-col gap-4">
+              <div className="text-xs text-ink-subtle font-mono">
+                step {frame.step} · line {frame.line}
+                {frame.recursion.active && ` · recursion depth ${frame.recursion.depth}`}
+              </div>
+              {Object.entries(frame.variables).map(([name, value]) => (
+                <div key={name}>
+                  <div className="text-xs text-ink-muted mb-1 font-mono">{name}</div>
+                  <ValueView
+                    name={name}
+                    value={value}
+                    prev={prevFrame?.variables[name]}
+                    variables={frame.variables}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {frames.length > 0 && (
+          <div className="border-t border-hairline px-4 py-2.5 flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => {
+                if (!playing && cursor >= frames.length - 1) setCursor(0);
+                setPlaying(!playing);
+              }}
+              className="text-sm text-ink-muted hover:text-ink w-6 transition-colors"
+              aria-label={playing ? "Pause" : "Play"}
+            >
+              {playing ? "❚❚" : "▶"}
+            </button>
+            <select
+              value={speed}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+              className="bg-transparent text-xs text-ink-subtle border border-hairline rounded-md px-1 py-0.5"
+              aria-label="Playback speed"
+            >
+              {SPEEDS.map((s) => (
+                <option key={s} value={s} className="bg-surface-2">
+                  {s}x
+                </option>
+              ))}
+            </select>
+            <input
+              type="range"
+              min={0}
+              max={frames.length - 1}
+              value={cursor}
+              onChange={(e) => {
+                setPlaying(false);
+                setCursor(Number(e.target.value));
+              }}
+              className="flex-1"
+            />
+            <span className="text-xs text-ink-subtle w-16 text-right font-mono">
+              {cursor + 1}/{frames.length}
+            </span>
+          </div>
+        )}
+      </div>
+    </MotionConfig>
   );
 }

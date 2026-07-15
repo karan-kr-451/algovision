@@ -41,7 +41,7 @@ export default function LoginPage() {
 
         {mode === "register" && (
           <input
-            className="rounded border border-zinc-700 bg-transparent px-3 py-2"
+            className="rounded-md border border-hairline bg-surface-1 px-3 py-2 focus:border-accent focus:outline-none transition-colors"
             placeholder="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -49,7 +49,7 @@ export default function LoginPage() {
           />
         )}
         <input
-          className="rounded border border-zinc-700 bg-transparent px-3 py-2"
+          className="rounded-md border border-hairline bg-surface-1 px-3 py-2 focus:border-accent focus:outline-none transition-colors"
           type="email"
           placeholder="Email"
           value={email}
@@ -57,7 +57,7 @@ export default function LoginPage() {
           required
         />
         <input
-          className="rounded border border-zinc-700 bg-transparent px-3 py-2"
+          className="rounded-md border border-hairline bg-surface-1 px-3 py-2 focus:border-accent focus:outline-none transition-colors"
           type="password"
           placeholder="Password"
           value={password}
@@ -65,19 +65,19 @@ export default function LoginPage() {
           required
         />
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-err text-sm">{error}</p>}
 
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-zinc-100 text-zinc-900 py-2 font-medium hover:bg-white disabled:opacity-50"
+          className="rounded-md bg-accent-strong text-white py-2 font-medium hover:bg-accent transition-colors disabled:opacity-50"
         >
           {mode === "login" ? "Log in" : "Register"}
         </button>
 
         <button
           type="button"
-          className="text-sm text-zinc-400 hover:text-zinc-100"
+          className="text-sm text-ink-subtle hover:text-ink transition-colors"
           onClick={() => setMode(mode === "login" ? "register" : "login")}
         >
           {mode === "login" ? "Need an account? Register" : "Have an account? Log in"}

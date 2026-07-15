@@ -6,11 +6,11 @@ import { submitSolution, type SubmissionResult } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 
 const verdictColor: Record<string, string> = {
-  accepted: "text-green-400",
-  wrong_answer: "text-red-400",
-  tle: "text-yellow-400",
-  mle: "text-yellow-400",
-  runtime_error: "text-red-400",
+  accepted: "text-ok",
+  wrong_answer: "text-err",
+  tle: "text-warn",
+  mle: "text-warn",
+  runtime_error: "text-err",
 };
 
 export default function Editor({
@@ -47,12 +47,12 @@ export default function Editor({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
-        <span className="text-sm text-zinc-400">Python</span>
+      <div className="flex items-center justify-between px-4 py-2 border-b border-hairline">
+        <span className="text-sm text-ink-muted">Python</span>
         <button
           onClick={handleRun}
           disabled={running}
-          className="text-sm bg-zinc-100 text-zinc-900 px-3 py-1 rounded hover:bg-white disabled:opacity-50"
+          className="text-sm bg-surface-2 border border-hairline text-ink px-3 py-1 rounded-md hover:border-hairline-strong transition-colors disabled:opacity-50"
           title="Ctrl+Enter"
         >
           {running ? "Running…" : "Run"}
@@ -69,8 +69,8 @@ export default function Editor({
         />
       </div>
       {(result || error) && (
-        <div className="border-t border-zinc-800 px-4 py-3 text-sm max-h-48 overflow-y-auto">
-          {error && <p className="text-red-400">{error}</p>}
+        <div className="border-t border-hairline px-4 py-3 text-sm max-h-48 overflow-y-auto">
+          {error && <p className="text-err">{error}</p>}
           {result && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
@@ -78,11 +78,11 @@ export default function Editor({
                   {result.status.replace("_", " ")}
                 </span>
                 {result.runtime_ms !== null && (
-                  <span className="text-zinc-500">{result.runtime_ms}ms</span>
+                  <span className="text-ink-subtle">{result.runtime_ms}ms</span>
                 )}
               </div>
               {result.test_results.map((tc, i) => (
-                <div key={i} className="text-zinc-400 font-mono text-xs">
+                <div key={i} className="text-ink-muted font-mono text-xs">
                   test {i + 1}: {tc.passed ? "✓ pass" : "✗ fail"}
                   {tc.error && ` — ${tc.error}`}
                   {!tc.passed && !tc.error && ` — got "${tc.stdout}", expected "${tc.expected}"`}
